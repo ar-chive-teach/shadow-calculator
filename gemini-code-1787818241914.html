@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌞 그림자로 태양 고도 측정하기</title>
+    <style>
+        /* 따뜻하고 친근한 폰트 및 배경 설정 */
+        body {
+            font-family: '맑은 고딕', 'Malgun Gothic', sans-serif;
+            background-color: #FFF8E7; /* 따뜻한 크림색 배경 */
+            color: #5D4037; /* 부드러운 갈색 텍스트 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: white;
+            padding: 30px 40px;
+            border-radius: 30px;
+            box-shadow: 0 10px 30px rgba(255, 160, 0, 0.15);
+            width: 100%;
+            max-width: 800px;
+        }
+        h1 {
+            text-align: center;
+            color: #FF8F00;
+            font-size: 26px;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-weight: 800;
+        }
+        .canvas-container {
+            background-color: #F0F8FF; /* 아주 연한 하늘색 */
+            border-radius: 20px;
+            padding: 10px;
+            margin-bottom: 30px;
+            border: 2px dashed #B3E5FC;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            width: 100%;
+            max-width: 700px;
+        }
+        
+        /* 컨트롤 패널 레이아웃 */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        @media (max-width: 600px) {
+            .controls-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+        }
+        .control-group {
+            background-color: #FFFDE7;
+            padding: 20px;
+            border-radius: 20px;
+            border: 1px solid #FFECB3;
+        }
+        .control-header {
+            font-size: 16px;
+            font-weight: bold;
+            color: #FF8F00;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .info-text {
+            font-size: 12px;
+            color: #8D6E63;
+            font-weight: normal;
+        }
+        
+        /* 입력 폼 스타일 */
+        .input-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        input[type="number"] {
+            width: 80px;
+            background-color: white;
+            padding: 10px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #5D4037;
+            border: 2px solid #FFE082;
+            text-align: center;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        input[type="number"]:focus {
+            border-color: #FF8F00;
+        }
+        input[type="number"][readonly] {
+            background-color: #EFEBE9;
+            border-color: #D7CCC8;
+            color: #8D6E63;
+            cursor: not-allowed;
+        }
+        
+        /* 귀여운 슬라이더 스타일 */
+        input[type="range"] {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 10px;
+            background: #FFE082;
+            border-radius: 5px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #FF8F00;
+            cursor: pointer;
+            border: 3px solid white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        /* 오전/오후 토글 버튼 */
+        .toggle-group {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .toggle-btn {
+            background-color: white;
+            border: 2px solid #FFE082;
+            color: #FF8F00;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .toggle-btn.active {
+            background-color: #FF8F00;
+            color: white;
+            border-color: #FF8F00;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🌞 그림자로 태양 고도 측정하기</h1>
+    
+    <!-- 태양 위치 선택 -->
+    <div class="toggle-group">
+        <button id="btnMorning" class="toggle-btn active" onclick="setTimeOfDay('morning')">오전 (동쪽 하늘)</button>
+        <button id="btnAfternoon" class="toggle-btn" onclick="setTimeOfDay('afternoon')">오후 (서쪽 하늘)</button>
+    </div>
+
+    <!-- 시각화 화면 -->
+    <div class="canvas-container">
+        <canvas id="simCanvas" width="700" height="350"></canvas>
+    </div>
+
+    <!-- 조작 패널 -->
+    <div class="controls-grid">
+        
+        <!-- 그림자 조작부 -->
+        <div class="control-group">
+            <div class="control-header">
+                <span>📏 그림자 길이 조절</span>
+                <span class="info-text">1.0 ~ 40.0 cm</span>
+            </div>
+            <div class="input-row">
+                <input type="number" id="shadowNum" min="1.0" max="40.0" step="0.1" value="10.5">
+                <span style="font-weight:bold;">cm</span>
+            </div>
+            <input type="range" id="shadowSlider" min="1.0" max="40.0" step="0.1" value="10.5">
+        </div>
+
+        <!-- 태양 고도 조작부 -->
+        <div class="control-group">
+            <div class="control-header">
+                <span>📐 태양 고도 조절</span>
+                <span class="info-text">14.0° ~ 84.3°</span>
+            </div>
+            <div class="input-row">
+                <input type="number" id="altNum" min="14.0" max="84.3" step="0.1" value="43.6">
+                <span style="font-weight:bold;">°</span>
+            </div>
+            <input type="range" id="altSlider" min="14.0" max="84.3" step="0.1" value="43.6">
+        </div>
+
+        <!-- 막대 높이 고정 안내 -->
+        <div class="control-group" style="grid-column: 1 / -1; display:flex; justify-content:center; align-items:center; gap:15px; padding:15px;">
+            <span style="font-weight:bold; color:#5D4037;">📍 막대 높이 (고정)</span>
+            <input type="number" value="10" readonly>
+            <span style="font-weight:bold;">cm</span>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    // 상태 변수
+    let stickHeight = 10; // 10cm 고정
+    let isMorning = true; // true: 동쪽(좌측), false: 서쪽(우측)
+
+    // DOM 요소 연결
+    const shadowNum = document.getElementById('shadowNum');
+    const shadowSlider = document.getElementById('shadowSlider');
+    const altNum = document.getElementById('altNum');
+    const altSlider = document.getElementById('altSlider');
+    
+    const btnMorning = document.getElementById('btnMorning');
+    const btnAfternoon = document.getElementById('btnAfternoon');
+    
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // 이벤트 리스너 등록
+    shadowNum.addEventListener('input', (e) => updateFromShadow(parseFloat(e.target.value)));
+    shadowSlider.addEventListener('input', (e) => updateFromShadow(parseFloat(e.target.value)));
+    
+    altNum.addEventListener('input', (e) => updateFromAlt(parseFloat(e.target.value)));
+    altSlider.addEventListener('input', (e) => updateFromAlt(parseFloat(e.target.value)));
+
+    // [로직 1] 그림자 길이 -> 태양 고도 계산
+    function updateFromShadow(shadowValue) {
+        if (isNaN(shadowValue)) return;
+        
+        let s = Math.max(1.0, Math.min(40.0, shadowValue));
+        
+        let altRad = Math.atan2(stickHeight, s);
+        let altDeg = altRad * (180 / Math.PI);
+
+        shadowNum.value = s.toFixed(1);
+        shadowSlider.value = s;
+        altNum.value = altDeg.toFixed(1);
+        altSlider.value = altDeg.toFixed(1);
+
+        drawCanvas(s, altRad, altDeg);
+    }
+
+    // [로직 2] 태양 고도 -> 그림자 길이 역계산
+    function updateFromAlt(altValue) {
+        if (isNaN(altValue)) return;
+        
+        let altDeg = Math.max(14.0, Math.min(84.3, altValue));
+        let altRad = altDeg * (Math.PI / 180);
+        
+        let s = stickHeight / Math.tan(altRad);
+
+        altNum.value = altDeg.toFixed(1);
+        altSlider.value = altDeg;
+        shadowNum.value = s.toFixed(1);
+        shadowSlider.value = s.toFixed(1);
+
+        drawCanvas(s, altRad, altDeg);
+    }
+
+    // 오전/오후 방향 토글
+    function setTimeOfDay(time) {
+        isMorning = (time === 'morning');
+        
+        if (isMorning) {
+            btnMorning.classList.add('active');
+            btnAfternoon.classList.remove('active');
+        } else {
+            btnMorning.classList.remove('active');
+            btnAfternoon.classList.add('active');
+        }
+        
+        updateFromShadow(parseFloat(shadowSlider.value));
+    }
+
+    // 툴팁(말풍선) 그리는 함수
+    function drawCuteTooltip(ctx, x, y, text, bgColor, textColor, arrowPos = 'bottom') {
+        ctx.font = 'bold 14px "맑은 고딕", sans-serif';
+        const tw = ctx.measureText(text).width;
+        const w = tw + 20;
+        const h = 26;
+        
+        let bx, by;
+        if (arrowPos === 'right') {
+            bx = x - w - 8;
+            by = y - h / 2;
+        } else { // bottom
+            bx = x - w / 2;
+            by = y - h - 8;
+        }
+
+        // 둥근 배경
+        ctx.fillStyle = bgColor;
+        ctx.beginPath();
+        ctx.roundRect(bx, by, w, h, 8);
+        ctx.fill();
+
+        // 꼬리 (화살표)
+        ctx.beginPath();
+        if (arrowPos === 'right') {
+            ctx.moveTo(bx + w, by + h / 2 - 6);
+            ctx.lineTo(bx + w + 8, by + h / 2);
+            ctx.lineTo(bx + w, by + h / 2 + 6);
+        } else {
+            ctx.moveTo(bx + w / 2 - 6, by + h);
+            ctx.lineTo(bx + w / 2, by + h + 8);
+            ctx.lineTo(bx + w / 2 + 6, by + h);
+        }
+        ctx.fill();
+
+        // 텍스트
+        ctx.fillStyle = textColor;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, bx + w / 2, by + h / 2);
+    }
+
+    // 캔버스 시각화
+    function drawCanvas(s, altRad, altDeg) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 중앙 위치 및 스케일 절대 고정 설정
+        const cx = canvas.width / 2;     // 막대 중앙 배치 (350)
+        const cy = canvas.height - 50;   // 지면 높이 (300)
+        const scale = 8;                 
+        
+        const pxH = stickHeight * scale; // 막대 높이 고정 (80px)
+        const pxS = s * scale;           // 그림자 픽셀 길이
+
+        // 1. 태양의 궤적 (반원 가이드라인)
+        const arcRadius = 240;
+        ctx.beginPath();
+        ctx.arc(cx, cy, arcRadius, Math.PI, 0);
+        ctx.strokeStyle = '#E0E0E0';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 6]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 동/남/서 라벨
+        ctx.fillStyle = '#9E9E9E';
+        ctx.font = 'bold 16px "맑은 고딕"';
+        ctx.textAlign = 'center';
+        ctx.fillText("동쪽", cx - arcRadius, cy + 25);
+        ctx.fillText("서쪽", cx + arcRadius, cy + 25);
+        ctx.fillText("남쪽", cx, cy - arcRadius - 15);
+
+        // 2. 지면
+        ctx.beginPath();
+        ctx.moveTo(30, cy);
+        ctx.lineTo(canvas.width - 30, cy);
+        ctx.strokeStyle = '#BCAAA4';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        // 오전(isMorning): 해가 동쪽(좌측), 그림자는 서쪽(우측)으로 짐
+        let shadowDir = isMorning ? 1 : -1;  
+        let sx = pxS * shadowDir;
+        let shadowEndX = cx + sx;
+
+        // 3. 그림자와 막대 끝을 잇는 일직선상(빛의 경로)과 궤적(arcRadius)의 교차점 계산
+        // 이를 통해 태양의 위치를 정확하게 배치합니다.
+        let dx = -sx;
+        let dy = -pxH;
+        let len = Math.sqrt(dx*dx + dy*dy);
+        let vx = dx / len;
+        let vy = dy / len;
+
+        // 이차방정식을 이용한 교점 계산 (광선과 원의 교차점)
+        let b = 2 * sx * vx;
+        let c = sx * sx - arcRadius * arcRadius;
+        let discriminant = b * b - 4 * c;
+        let t = (-b + Math.sqrt(discriminant)) / 2;
+
+        let sunX = cx + sx + t * vx;
+        let sunY = cy + t * vy;
+
+        // 4. 그림자 (포근한 짙은 회갈색)
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(shadowEndX, cy);
+        ctx.strokeStyle = 'rgba(93, 64, 55, 0.4)';
+        ctx.lineWidth = 12;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+        ctx.lineCap = 'butt'; 
+
+        // 5. 막대 (상큼한 파란색)
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx, cy - pxH);
+        ctx.strokeStyle = '#29B6F6';
+        ctx.lineWidth = 12;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+        ctx.lineCap = 'butt';
+
+        // 6. 빛의 경로 (점선) - 태양 중심에서 그림자 끝까지 완벽한 일직선
+        ctx.beginPath();
+        ctx.moveTo(sunX, sunY);
+        ctx.lineTo(shadowEndX, cy);
+        ctx.strokeStyle = '#FFCA28';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 6]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 7. 🌞 태양 이모티콘
+        ctx.font = '50px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🌞', sunX, sunY);
+
+        // 8. 고도 각도 호(Arc)
+        ctx.beginPath();
+        if (isMorning) {
+            ctx.arc(shadowEndX, cy, 40, Math.PI, Math.PI + altRad);
+        } else {
+            ctx.arc(shadowEndX, cy, 40, -altRad, 0);
+        }
+        ctx.strokeStyle = '#FFA000';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // 각도 텍스트
+        ctx.fillStyle = '#E65100';
+        ctx.font = 'bold 18px "맑은 고딕"';
+        ctx.textAlign = isMorning ? 'right' : 'left';
+        ctx.fillText(altDeg.toFixed(1) + '°', shadowEndX + (isMorning ? -50 : 50), cy - 20);
+
+        // 9. 말풍선(툴팁) 그리기
+        // 막대 툴팁
+        let tooltipX = isMorning ? cx - 10 : cx + 10;
+        drawCuteTooltip(ctx, tooltipX, cy - pxH/2, '막대 10cm', '#E1F5FE', '#0277BD', isMorning ? 'right' : 'left');
+        
+        // 그림자 툴팁 (아래쪽 위치 조정)
+        drawCuteTooltip(ctx, cx + sx / 2, cy + 45, `그림자 ${s.toFixed(1)}cm`, '#FFF3E0', '#E65100', 'top');
+    }
+
+    // 초기 화면 로드
+    updateFromShadow(10.5);
+</script>
+
+</body>
+</html>
